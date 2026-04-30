@@ -265,6 +265,43 @@ Este arquivo serve como memória persistente entre sessões. Leia este arquivo n
 
 ---
 
+### Sessão 4 - 30/04/2026
+**Iniciado por:** Kassio
+**Objetivo:** Deploy no servidor whatsrifas.com.br
+
+**O que foi feito:**
+1. Corrigido `lib/api.js` no servidor (havia duplicatas causando erro de build)
+2. Commitado e enviado para GitHub (commit `af85977`)
+3. Tentativa de SSH no servidor para `git pull` falhou por autenticação
+
+**Problema encontrado:**
+- SSH `rifasonline@whatsrifas.com.br` retorna "Permission denied (publickey,password)"
+- Não foi possível fazer deploy automático via SSH
+
+**Arquivos atualizados no GitHub:**
+- `lib/api.js` (limpo, sem duplicatas)
+- `.env.production.example` (novo)
+- `DEPLOY.md` (novo)
+- `ecosystem.config.js` (novo)
+
+**Status do Deploy:**
+- ❌ Pendente - Acesso SSH ao servidor necessário
+- ✅ Código atualizado no GitHub (master)
+
+**Próximos passos (MANUAL NO SERVIDOR):**
+1. Acessar servidor via CyberPanel ou SSH com chave correta
+2. No diretório `/home/rifasonline/htdocs/whatsrifas.com.br/rifasonline`:
+   ```bash
+   git pull origin master
+   npm install
+   npm run build
+   pm2 restart rifasonline
+   ```
+3. Configurar `.env` com credenciais reais do banco
+4. Executar migrações: `npx prisma migrate deploy`
+
+---
+
 ## 🎯 Onde Paramos (Última Sessão)
 
 **Data:** 30/04/2026
