@@ -1,27 +1,68 @@
+import { useState, useEffect } from 'react'
 import AdminClientLayout from '../../components/layout/AdminClientLayout'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
+import { getSalesReport } from '../../lib/api'
 import styles from '../../styles/Layout.module.css'
 
 export default function RelatoriosPage() {
-  const vendasPorDia = [
-    { data: '2026-04-24', vendas: 45, valor: 1125.00 },
-    { data: '2026-04-25', vendas: 52, valor: 1300.00 },
-    { data: '2026-04-26', vendas: 38, valor: 950.00 },
-    { data: '2026-04-27', vendas: 61, valor: 1525.00 },
-    { data: '2026-04-28', vendas: 48, valor: 1200.00 },
-    { data: '2026-04-29', vendas: 55, valor: 1375.00 },
-    { data: '2026-04-30', vendas: 43, valor: 1075.00 },
-  ]
+  const [salesData, setSalesData] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
-  const topRifas = [
-    { nome: 'Rifa iPhone 15 Pro', vendidos: 145, receita: 3625.00 },
-    { nome: 'Rifa TV 75" 8K', vendidos: 280, receita: 14000.00 },
-    { nome: 'Rifa Viagem Cancún', vendidos: 89, receita: 8900.00 },
-  ]
+  useEffect(() => {
+    loadReport()
+  }, [])
 
-  const totalVendas = vendasPorDia.reduce((acc, v) => acc + v.vendas, 0)
-  const totalReceita = vendasPorDia.reduce((acc, v) => acc + v.valor, 0)
+  async function loadReport() {
+    try {
+      setLoading(true)
+      const data = await getSalesReport()
+      setSalesData(data)
+    } catch (err) {
+      setError('Erro ao carregar relatório')
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <AdminClientLayout>
+        <div className={styles.container}>
+          <p>Carregando...</p>
+        </div>
+      </AdminClientLayout>
+    )
+  }
+
+  const vendasPorDia = salesData?.sales?.reduce((acc, sale) => {
+    const data = new Date(sale.createdAt).toLocaleDateString('pt-BR')
+    const existing = acc.find(item => item.data === data)
+    if (existing) {
+      existing.vendas += 1
+      existing.valor += sale.totalAmount
+    } else {
+      acc.push({ data, vendas: 1, valor: sale.totalAmount })
+    }
+    return acc
+  }, []).slice(0, 7) || []
+
+  const topRifas = salesData?.sales?.reduce((acc, sale) => {
+    const rifaNome = sale.raffle?.title || 'Sem nome'
+    const existing = acc.find(item => item.nome === rifaNome)
+    if (existing) {
+      existing.vendidos += 1
+      existing.receita += sale.totalAmount
+    } else {
+      acc.push({ nome: rifaNome, vendidos: 1, receita: sale.totalAmount })
+    }
+    return acc
+  }, []).sort((a, b) => b.receita - a.receita).slice(0, 3) || []
+
+  const totalVendas = salesData?.summary?.totalSales || 0
+  const totalReceita = salesData?.summary?.totalAmount || 0
 
   return (
     <AdminClientLayout>
@@ -31,14 +72,26 @@ export default function RelatoriosPage() {
           <p className={styles.pageSubtitle}>Acompanhe o desempenho das suas rifas</p>
         </div>
 
+        {error && (
+          <div style={{
+            backgroundColor: 'var(--color-danger-light)',
+            color: 'var(--color-danger)',
+            padding: '12px',
+            borderRadius: '8px',
+            marginBottom: '16px'
+          }}>
+            {error}
+          </div>
+        )}
+
         <div className={styles.gridThree} style={{ marginBottom: '32px' }}>
-          <Card title="Total de Vendas (7 dias)">
+          <Card title="Total de Vendas">
             <div style={{ fontSize: '32px', fontWeight: 'bold', color: 'var(--color-primary)' }}>
               {totalVendas}
             </div>
             <div style={{ fontSize: '14px', color: 'var(--color-gray-600)' }}>Números vendidos</div>
           </Card>
-          <Card title="Receita Total (7 dias)">
+          <Card title="Receita Total">
             <div style={{ fontSize: '32px', fontWeight: 'bold', color: 'var(--color-success)' }}>
               R$ {totalReceita.toFixed(2)}
             </div>
@@ -46,35 +99,35 @@ export default function RelatoriosPage() {
           </Card>
           <Card title="Ticket Médio">
             <div style={{ fontSize: '32px', fontWeight: 'bold', color: 'var(--color-info)' }}>
-              R$ {(totalReceita / totalVendas).toFixed(2)}
+              R$ {totalVendas > 0 ? (totalReceita / totalVendas).toFixed(2) : '0.00'}
             </div>
             <div style={{ fontSize: '14px', color: 'var(--color-gray-600)' }}>Por número</div>
           </Card>
         </div>
 
         <div className={styles.gridTwo}>
-          <Card title="Vendas por Dia (Últimos 7 dias)">
+          <Card title="Vendas por Dia (Recentes)">
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {vendasPorDia.map((venda, i) => (
                 <div key={i}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
                     <span style={{ fontSize: '14px' }}>
-                      {new Date(venda.data).toLocaleDateString('pt-BR')}
+                      {venda.data}
                     </span>
                     <span style={{ fontSize: '14px', fontWeight: 'bold' }}>
                       {venda.vendas} vendas - R$ {venda.valor.toFixed(2)}
                     </span>
                   </div>
-                  <div style={{ 
-                    height: '8px', 
-                    backgroundColor: 'var(--color-gray-200)', 
+                  <div style={{
+                    height: '8px',
+                    backgroundColor: 'var(--color-gray-200)',
                     borderRadius: '4px',
                     overflow: 'hidden'
                   }}>
-                    <div style={{ 
-                      width: `${(venda.vendas / 70) * 100}%`, 
-                      height: '100%', 
-                      backgroundColor: 'var(--color-primary)' 
+                    <div style={{
+                      width: `${Math.min((venda.vendas / 70) * 100, 100)}%`,
+                      height: '100%',
+                      backgroundColor: 'var(--color-primary)'
                     }} />
                   </div>
                 </div>
@@ -84,8 +137,8 @@ export default function RelatoriosPage() {
 
           <Card title="Top Rifas por Receita">
             {topRifas.map((rifa, i) => (
-              <div key={i} style={{ 
-                padding: '12px 0', 
+              <div key={i} style={{
+                padding: '12px 0',
                 borderBottom: i < topRifas.length - 1 ? '1px solid var(--color-gray-200)' : 'none'
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>

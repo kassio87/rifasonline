@@ -34,10 +34,12 @@ export default function Login() {
       const data = await response.json()
       
       if (data.exists) {
-        // Usuário existe, fazer login
-        router.push('/dashboard')
+        if (data.hasPassword) {
+          setStep('password')
+        } else {
+          setStep('password')
+        }
       } else {
-        // Usuário não existe, mostrar campos de senha
         setStep('password')
       }
     } catch (err) {
@@ -55,30 +57,26 @@ export default function Login() {
       return
     }
     
-    if (password !== confirmPassword) {
-      setError('As senhas não coincidem')
-      return
-    }
-    
     setLoading(true)
     setError('')
     
     try {
-      const response = await fetch('/api/auth/register', {
+      const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ whatsapp, password }),
+        body: JSON.stringify({ emailOrPhone: whatsapp, password }),
       })
       
       const data = await response.json()
       
       if (response.ok) {
+        localStorage.setItem('token', data.token)
         router.push('/dashboard')
       } else {
-        setError(data.message || 'Erro ao criar conta')
+        setError(data.error || 'Erro ao fazer login')
       }
     } catch (err) {
-      setError('Erro ao criar conta. Tente novamente.')
+      setError('Erro ao fazer login. Tente novamente.')
     } finally {
       setLoading(false)
     }

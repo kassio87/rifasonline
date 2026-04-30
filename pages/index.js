@@ -1,19 +1,38 @@
-import { useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
 
 export default function Home() {
   const router = useRouter()
+  const [checking, setChecking] = useState(true)
 
   useEffect(() => {
-    // Redireciona para login ou dashboard se já estiver logado
-    const token = localStorage.getItem('token')
-    if (token) {
-      router.push('/dashboard')
-    } else {
-      router.push('/login')
+    checkInstallation()
+  }, [])
+
+  async function checkInstallation() {
+    try {
+      const response = await fetch('/api/install/check')
+      const data = await response.json()
+      
+      if (!data.installed) {
+        router.push('/install')
+        return
+      }
+      
+      const token = localStorage.getItem('token')
+      if (token) {
+        router.push('/dashboard')
+      } else {
+        router.push('/login')
+      }
+    } catch (error) {
+      console.error('Erro ao verificar instalação:', error)
+      router.push('/install')
+    } finally {
+      setChecking(false)
     }
-  }, [router])
+  }
 
   return (
     <>
@@ -30,7 +49,7 @@ export default function Home() {
       }}>
         <div style={{ color: 'white', textAlign: 'center' }}>
           <h1 style={{ fontSize: '48px', marginBottom: '16px' }}>🎉 RifasOnline</h1>
-          <p style={{ fontSize: '18px', opacity: 0.9 }}>Carregando...</p>
+          <p style={{ fontSize: '18px', opacity: 0.9 }}>Verificando sistema...</p>
         </div>
       </div>
     </>

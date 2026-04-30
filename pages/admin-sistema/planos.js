@@ -1,47 +1,73 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import AdminSystemLayout from '../../components/layout/AdminSystemLayout'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
+import { getPlans, createPlan, deletePlan } from '../../lib/api'
 import styles from '../../styles/Layout.module.css'
 
 export default function GestaoPlanos() {
   const [showModal, setShowModal] = useState(false)
-  const [tipoPlano, setTipoPlano] = useState('recorrente')
-  
-  const planos = [
-    {
-      id: 1,
-      nome: 'Básico Recorrente',
-      tipo: 'recorrente',
-      preco: 99.90,
-      limiteRifas: 5,
-      limiteNumeros: 1000,
-      limiteVendasMes: 500,
-      status: 'ativo'
-    },
-    {
-      id: 2,
-      nome: 'Pro Recorrente',
-      tipo: 'recorrente',
-      preco: 199.90,
-      limiteRifas: 20,
-      limiteNumeros: 5000,
-      limiteVendasMes: 2000,
-      status: 'ativo'
-    },
-    {
-      id: 3,
-      nome: 'Single Event',
-      tipo: 'fixo',
-      preco: 149.90,
-      limiteRifas: 1,
-      limiteNumeros: 2000,
-      limiteVendasMes: null,
-      validadeDias: 30,
-      status: 'ativo'
+  const [planos, setPlanos] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [tipoPlano, setTipoPlano] = useState('RECURRENT')
+  const [formData, setFormData] = useState({
+    name: '',
+    type: 'RECURRENT',
+    fixedPrice: '',
+    description: '',
+    limits: []
+  })
+
+  useEffect(() => {
+    loadPlans()
+  }, [])
+
+  async function loadPlans() {
+    try {
+      setLoading(true)
+      const data = await getPlans()
+      setPlanos(data)
+    } catch (err) {
+      setError('Erro ao carregar planos')
+      console.error(err)
+    } finally {
+      setLoading(false)
     }
-  ]
+  }
+
+  async function handleCreatePlan(e) {
+    e.preventDefault()
+    try {
+      await createPlan(formData)
+      setShowModal(false)
+      setFormData({ name: '', type: 'RECURRENT', fixedPrice: '', description: '', limits: [] })
+      loadPlans()
+    } catch (err) {
+      setError('Erro ao criar plano')
+    }
+  }
+
+  async function handleDeletePlan(id) {
+    if (!confirm('Tem certeza que deseja excluir este plano?')) return
+    try {
+      await deletePlan(id)
+      loadPlans()
+    } catch (err) {
+      setError('Erro ao excluir plano')
+    }
+  }
+
+  if (loading) {
+    return (
+      <AdminSystemLayout>
+        <div className={styles.container}>
+          <p>Carregando...</p>
+        </div>
+      </AdminSystemLayout>
+    )
+  }
 
   return (
     <AdminSystemLayout>
@@ -56,52 +82,55 @@ export default function GestaoPlanos() {
           </Button>
         </div>
 
+        {error && (
+          <div style={{ 
+            backgroundColor: 'var(--color-danger-light)', 
+            color: 'var(--color-danger)',
+            padding: '12px',
+            borderRadius: '8px',
+            marginBottom: '16px'
+          }}>
+            {error}
+          </div>
+        )}
+
         <div className={styles.gridTwo}>
           {planos.map((plano) => (
-            <Card key={plano.id} title={plano.nome}>
+            <Card key={plano.id} title={plano.name}>
               <div style={{ marginBottom: '16px' }}>
                 <span style={{ 
                   padding: '4px 8px', 
                   borderRadius: '4px', 
                   fontSize: '12px',
-                  backgroundColor: plano.tipo === 'recorrente' ? 'var(--color-info-light)' : 'var(--color-warning-light)',
-                  color: plano.tipo === 'recorrente' ? 'var(--color-info)' : 'var(--color-warning)'
+                  backgroundColor: plano.type === 'RECURRENT' ? 'var(--color-info-light)' : 'var(--color-warning-light)',
+                  color: plano.type === 'RECURRENT' ? 'var(--color-info)' : 'var(--color-warning)'
                 }}>
-                  {plano.tipo === 'recorrente' ? 'Recorrente' : 'Fixo'}
+                  {plano.type === 'RECURRENT' ? 'Recorrente' : 'Fixo'}
                 </span>
               </div>
-              
+               
               <div style={{ fontSize: '32px', fontWeight: 'bold', color: 'var(--color-primary)', marginBottom: '16px' }}>
-                R$ {plano.preco.toFixed(2)}
-                {plano.tipo === 'recorrente' && <span style={{ fontSize: '14px', color: 'var(--color-gray-600)' }}>/mês</span>}
+                {plano.type === 'FIXED' ? 'R$ ' + plano.fixedPrice?.toFixed(2) : 'Recorrente'}
+                {plano.type === 'RECURRENT' && <span style={{ fontSize: '14px', color: 'var(--color-gray-600)' }}> (por % de vendas)</span>}
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--color-gray-600)' }}>Limite Rifas:</span>
-                  <span style={{ fontWeight: 'bold' }}>{plano.limiteRifas}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--color-gray-600)' }}>Limite Números:</span>
-                  <span style={{ fontWeight: 'bold' }}>{plano.limiteNumeros.toLocaleString()}</span>
-                </div>
-                {plano.limiteVendasMes && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: 'var(--color-gray-600)' }}>Vendas/mês:</span>
-                    <span style={{ fontWeight: 'bold' }}>{plano.limiteVendasMes.toLocaleString()}</span>
+              {plano.limits && plano.limits.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ fontSize: '14px', color: 'var(--color-gray-600)', marginBottom: '8px' }}>
+                    Faixas de comissão:
                   </div>
-                )}
-                {plano.validadeDias && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: 'var(--color-gray-600)' }}>Validade:</span>
-                    <span style={{ fontWeight: 'bold' }}>{plano.validadeDias} dias</span>
-                  </div>
-                )}
-              </div>
+                  {plano.limits.map((limit, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
+                      <span>Até {limit.maxSales} vendas:</span>
+                      <span style={{ fontWeight: 'bold' }}>{limit.percentage}%</span>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               <div style={{ marginTop: '16px', display: 'flex', gap: '8px' }}>
                 <Button variant="outline" size="small">Editar</Button>
-                <Button variant="danger" size="small">Excluir</Button>
+                <Button variant="danger" size="small" onClick={() => handleDeletePlan(plano.id)}>Excluir</Button>
               </div>
             </Card>
           ))}
@@ -129,37 +158,57 @@ export default function GestaoPlanos() {
             }}>
               <h2 style={{ marginBottom: '16px' }}>Novo Plano</h2>
               
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', marginBottom: '8px' }}>Tipo de Plano</label>
-                <select 
-                  value={tipoPlano} 
-                  onChange={(e) => setTipoPlano(e.target.value)}
-                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--color-gray-300)' }}
-                >
-                  <option value="recorrente">Recorrente (Mensal)</option>
-                  <option value="fixo">Fixo (Único)</option>
-                </select>
-              </div>
+              <form onSubmit={handleCreatePlan}>
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', marginBottom: '8px' }}>Tipo de Plano</label>
+                  <select 
+                    value={formData.type} 
+                    onChange={(e) => {
+                      setFormData({...formData, type: e.target.value})
+                      setTipoPlano(e.target.value)
+                    }}
+                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--color-gray-300)' }}
+                  >
+                    <option value="RECURRENT">Recorrente (Por % de vendas)</option>
+                    <option value="FIXED">Fixo (Valor único)</option>
+                  </select>
+                </div>
 
-              <Input label="Nome do Plano" placeholder="Ex: Premium" />
-              <Input label="Preço (R$)" type="number" placeholder="99.90" />
-              <Input label="Limite de Rifas" type="number" placeholder="10" />
-              <Input label="Limite de Números por Rifa" type="number" placeholder="1000" />
-              
-              {tipoPlano === 'recorrente' ? (
-                <Input label="Limite de Vendas por Mês" type="number" placeholder="500" />
-              ) : (
-                <Input label="Validade (dias)" type="number" placeholder="30" />
-              )}
+                <Input 
+                  label="Nome do Plano" 
+                  placeholder="Ex: Premium" 
+                  value={formData.name}
+                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  required
+                />
+                
+                {formData.type === 'FIXED' && (
+                  <Input 
+                    label="Preço (R$)" 
+                    type="number" 
+                    placeholder="99.90"
+                    value={formData.fixedPrice}
+                    onChange={(e) => setFormData({...formData, fixedPrice: e.target.value})}
+                    required
+                  />
+                )}
+                
+                <Input 
+                  label="Descrição" 
+                  placeholder="Descrição do plano"
+                  value={formData.description}
+                  onChange={(e) => setFormData({...formData, description: e.target.value})}
+                />
 
-              <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
-                <Button variant="secondary" fullWidth onClick={() => setShowModal(false)}>
-                  Cancelar
-                </Button>
-                <Button variant="primary" fullWidth>
-                  Criar Plano
-                </Button>
-              </div>
+                <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+                  <Button variant="secondary" fullWidth onClick={() => setShowModal(false)}>
+                    Cancelar
+                  </Button>
+                  <Button variant="primary" fullWidth type="submit">
+                    Criar Plano
+                  </Button>
+                </div>
+              </form>
             </div>
           </div>
         )}

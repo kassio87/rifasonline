@@ -1,19 +1,61 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import AdminSystemLayout from '../../components/layout/AdminSystemLayout'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
+import { getClientAdmins, createClientAdmin } from '../../lib/api'
 import styles from '../../styles/Layout.module.css'
 
 export default function AdminsCliente() {
   const [showModal, setShowModal] = useState(false)
-  const [admins] = useState([
-    { id: 1, nome: 'João Silva', email: 'joao@rifatop.com', whatsapp: '(11) 99999-1111', cliente: 'Rifa Top SP', dataCriacao: '2026-01-15' },
-    { id: 2, nome: 'Maria Santos', email: 'maria@sorteiosrj.com', whatsapp: '(21) 98888-2222', cliente: 'Sorteios RJ', dataCriacao: '2026-02-20' },
-    { id: 3, nome: 'Pedro Costa', email: 'pedro@luckydraw.com', whatsapp: '(31) 97777-3333', cliente: 'Lucky Draw BH', dataCriacao: '2026-03-10' },
-  ])
+  const [admins, setAdmins] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    companyName: ''
+  })
 
-  const clientes = ['Rifa Top SP', 'Sorteios RJ', 'Lucky Draw BH', 'Mega Rifas DF', 'Sorteio Legal RS']
+  useEffect(() => {
+    loadAdmins()
+  }, [])
+
+  async function loadAdmins() {
+    try {
+      setLoading(true)
+      const data = await getClientAdmins()
+      setAdmins(data)
+    } catch (err) {
+      setError('Erro ao carregar admins')
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleCreateAdmin(e) {
+    e.preventDefault()
+    try {
+      await createClientAdmin(formData)
+      setShowModal(false)
+      setFormData({ name: '', email: '', phone: '', companyName: '' })
+      loadAdmins()
+    } catch (err) {
+      setError('Erro ao criar admin')
+    }
+  }
+
+  if (loading) {
+    return (
+      <AdminSystemLayout>
+        <div className={styles.container}>
+          <p>Carregando...</p>
+        </div>
+      </AdminSystemLayout>
+    )
+  }
 
   return (
     <AdminSystemLayout>
@@ -27,6 +69,18 @@ export default function AdminsCliente() {
             + Novo Admin
           </Button>
         </div>
+
+        {error && (
+          <div style={{
+            backgroundColor: 'var(--color-danger-light)',
+            color: 'var(--color-danger)',
+            padding: '12px',
+            borderRadius: '8px',
+            marginBottom: '16px'
+          }}>
+            {error}
+          </div>
+        )}
 
         <Card>
           <div style={{ overflowX: 'auto' }}>
@@ -44,13 +98,13 @@ export default function AdminsCliente() {
                 {admins.map((admin) => (
                   <tr key={admin.id} style={{ borderBottom: '1px solid var(--color-gray-200)' }}>
                     <td style={{ padding: '12px 8px' }}>
-                      <div style={{ fontWeight: 'bold' }}>{admin.nome}</div>
+                      <div style={{ fontWeight: 'bold' }}>{admin.name}</div>
                       <div style={{ fontSize: '12px', color: 'var(--color-gray-600)' }}>{admin.email}</div>
                     </td>
-                    <td style={{ padding: '12px 8px' }}>{admin.whatsapp}</td>
-                    <td style={{ padding: '12px 8px' }}>{admin.cliente}</td>
+                    <td style={{ padding: '12px 8px' }}>{admin.phone || '-'}</td>
+                    <td style={{ padding: '12px 8px' }}>{admin.clientAdmin?.companyName || '-'}</td>
                     <td style={{ padding: '12px 8px' }}>
-                      {new Date(admin.dataCriacao).toLocaleDateString('pt-BR')}
+                      {new Date(admin.createdAt).toLocaleDateString('pt-BR')}
                     </td>
                     <td style={{ padding: '12px 8px', textAlign: 'center' }}>
                       <Button variant="outline" size="small" style={{ marginRight: '8px' }}>
@@ -88,44 +142,68 @@ export default function AdminsCliente() {
               maxWidth: '500px'
             }}>
               <h2 style={{ marginBottom: '16px' }}>Novo Admin Cliente</h2>
-              
-              <Input label="Nome Completo" placeholder="Nome do administrador" />
-              <Input label="E-mail" type="email" placeholder="admin@exemplo.com" />
-              <Input label="WhatsApp" type="tel" placeholder="(11) 99999-9999" />
-              
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500' }}>
-                  Cliente
-                </label>
-                <select style={{ 
-                  width: '100%', 
-                  padding: '8px 12px', 
-                  borderRadius: '8px', 
-                  border: '1px solid var(--color-gray-300)',
-                  fontFamily: 'var(--font-family)'
-                }}>
-                  <option value="">Selecione um cliente</option>
-                  {clientes.map((cliente, i) => (
-                    <option key={i} value={cliente}>{cliente}</option>
-                  ))}
-                </select>
-              </div>
+               
+              <form onSubmit={handleCreateAdmin}>
+                <Input 
+                  label="Nome Completo" 
+                  placeholder="Nome do administrador"
+                  value={formData.name}
+                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  required
+                />
+                <Input 
+                  label="E-mail" 
+                  type="email" 
+                  placeholder="admin@exemplo.com"
+                  value={formData.email}
+                  onChange={(e) => setFormData({...formData, email: e.target.value})}
+                />
+                <Input 
+                  label="WhatsApp" 
+                  type="tel" 
+                  placeholder="(11) 99999-9999"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                />
+                <Input 
+                  label="Empresa" 
+                  placeholder="Nome da empresa"
+                  value={formData.companyName}
+                  onChange={(e) => setFormData({...formData, companyName: e.target.value})}
+                />
 
-              <Input label="Senha Temporária" type="password" placeholder="Mínimo 6 caracteres" />
-              <Input label="Confirmar Senha" type="password" placeholder="Digite novamente" />
-
-              <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
-                <Button variant="secondary" fullWidth onClick={() => setShowModal(false)}>
-                  Cancelar
-                </Button>
-                <Button variant="primary" fullWidth>
-                  Criar Admin
-                </Button>
-              </div>
+                <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+                  <Button variant="secondary" fullWidth onClick={() => setShowModal(false)}>
+                    Cancelar
+                  </Button>
+                  <Button variant="primary" fullWidth type="submit">
+                    Criar Admin
+                  </Button>
+                </div>
+              </form>
             </div>
           </div>
         )}
       </div>
     </AdminSystemLayout>
   )
+}
+
+function getClientAdmins() {
+  return fetch('/api/users', {
+    headers: {
+      'Authorization': `Bearer ${localStorage.getItem('token')}`
+    }
+  }).then(res => res.json())
+}
+
+function createClientAdmin(data) {
+  return fetch('/api/users', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${localStorage.getItem('token')}`
+    },
+    body: JSON.stringify(data)
+  }).then(res => res.json())
 }

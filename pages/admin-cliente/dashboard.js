@@ -1,20 +1,52 @@
+import { useState, useEffect } from 'react'
 import AdminClientLayout from '../../components/layout/AdminClientLayout'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
+import { getDashboardStats, getRaffles } from '../../lib/api'
 import styles from '../../styles/Layout.module.css'
 
 export default function AdminClienteDashboard() {
-  const stats = [
-    { title: 'Rifas Ativas', value: '8', icon: '🎟️' },
-    { title: 'Vendas Hoje', value: 'R$ 1.250', icon: '💰' },
-    { title: 'Tickets Vendidos', value: '342', icon: '🎫' },
-    { title: 'Status Assinatura', value: 'Ativa', icon: '✅' },
-  ]
+  const [stats, setStats] = useState(null)
+  const [rifas, setRifas] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
-  const rifasRecentes = [
-    { id: 1, nome: 'Rifa iPhone 15', vendidos: 145, total: 500, status: 'Ativa' },
-    { id: 2, nome: 'Rifa Viagem Cancún', vendidos: 89, total: 200, status: 'Ativa' },
-    { id: 3, nome: 'Rifa TV 75"', vendidos: 200, total: 300, status: 'Finalizando' },
+  useEffect(() => {
+    loadData()
+  }, [])
+
+  async function loadData() {
+    try {
+      setLoading(true)
+      const [statsData, rifasData] = await Promise.all([
+        getDashboardStats(),
+        getRaffles()
+      ])
+      setStats(statsData.overview)
+      setRifas(rifasData.slice(0, 3)) // Pegar apenas as 3 mais recentes
+    } catch (err) {
+      setError('Erro ao carregar dados')
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <AdminClientLayout>
+        <div className={styles.container}>
+          <p>Carregando...</p>
+        </div>
+      </AdminClientLayout>
+    )
+  }
+
+  const statCards = [
+    { title: 'Total Rifas', value: rifas.length.toString(), icon: '🎟️' },
+    { title: 'Vendas Totais', value: stats?.totalSales?.toString() || '0', icon: '💰' },
+    { title: 'Números Vendidos', value: stats?.totalNumbersSold?.toString() || '0', icon: '🎫' },
+    { title: 'Receita Total', value: `R$ ${stats?.totalSalesAmount?.toFixed(2) || '0.00'}`, icon: '💳' },
   ]
 
   return (
@@ -25,8 +57,20 @@ export default function AdminClienteDashboard() {
           <p className={styles.pageSubtitle}>Visão geral das suas rifas e vendas</p>
         </div>
 
+        {error && (
+          <div style={{ 
+            backgroundColor: 'var(--color-danger-light)', 
+            color: 'var(--color-danger)',
+            padding: '12px',
+            borderRadius: '8px',
+            marginBottom: '16px'
+          }}>
+            {error}
+          </div>
+        )}
+
         <div className={styles.gridTwo}>
-          {stats.map((stat, index) => (
+          {statCards.map((stat, index) => (
             <Card key={index} title={stat.title}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ fontSize: '32px', fontWeight: 'bold', color: 'var(--color-primary)' }}>
@@ -57,42 +101,47 @@ export default function AdminClienteDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {rifasRecentes.map((rifa) => (
-                    <tr key={rifa.id} style={{ borderBottom: '1px solid var(--color-gray-200)' }}>
-                      <td style={{ padding: '12px 8px', fontWeight: 'bold' }}>{rifa.nome}</td>
-                      <td style={{ padding: '12px 8px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <div style={{ 
-                            flex: 1, 
-                            height: '8px', 
-                            backgroundColor: 'var(--color-gray-200)', 
-                            borderRadius: '4px',
-                            overflow: 'hidden'
-                          }}>
+                  {rifas.map((rifa) => {
+                    const soldNumbers = rifa.numbers?.filter(n => n.status === 'PAID').length || 0
+                    const progress = rifa.totalNumbers > 0 ? (soldNumbers / rifa.totalNumbers) * 100 : 0
+                    
+                    return (
+                      <tr key={rifa.id} style={{ borderBottom: '1px solid var(--color-gray-200)' }}>
+                        <td style={{ padding: '12px 8px', fontWeight: 'bold' }}>{rifa.title}</td>
+                        <td style={{ padding: '12px 8px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <div style={{ 
-                              width: `${(rifa.vendidos / rifa.total) * 100}%`, 
-                              height: '100%', 
-                              backgroundColor: 'var(--color-primary)' 
-                            }} />
+                              flex: 1, 
+                              height: '8px', 
+                              backgroundColor: 'var(--color-gray-200)', 
+                              borderRadius: '4px',
+                              overflow: 'hidden'
+                            }}>
+                              <div style={{ 
+                                width: `${progress}%`, 
+                                height: '100%', 
+                                backgroundColor: 'var(--color-primary)' 
+                              }} />
+                            </div>
+                            <span style={{ fontSize: '12px', whiteSpace: 'nowrap' }}>
+                              {soldNumbers}/{rifa.totalNumbers}
+                            </span>
                           </div>
-                          <span style={{ fontSize: '12px', whiteSpace: 'nowrap' }}>
-                            {rifa.vendidos}/{rifa.total}
+                        </td>
+                        <td style={{ padding: '12px 8px', textAlign: 'center' }}>
+                          <span style={{ 
+                            padding: '4px 8px', 
+                            borderRadius: '4px', 
+                            fontSize: '12px',
+                            backgroundColor: rifa.status === 'ACTIVE' ? 'var(--color-success-light)' : 'var(--color-warning-light)',
+                            color: rifa.status === 'ACTIVE' ? 'var(--color-success)' : 'var(--color-warning)'
+                          }}>
+                            {rifa.status === 'ACTIVE' ? 'Ativa' : rifa.status}
                           </span>
-                        </div>
-                      </td>
-                      <td style={{ padding: '12px 8px', textAlign: 'center' }}>
-                        <span style={{ 
-                          padding: '4px 8px', 
-                          borderRadius: '4px', 
-                          fontSize: '12px',
-                          backgroundColor: rifa.status === 'Ativa' ? 'var(--color-success-light)' : 'var(--color-warning-light)',
-                          color: rifa.status === 'Ativa' ? 'var(--color-success)' : 'var(--color-warning)'
-                        }}>
-                          {rifa.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
