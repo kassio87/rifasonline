@@ -7,6 +7,25 @@ Este arquivo serve como memória persistente entre sessões. Leia este arquivo n
 
 ---
 
+## 🔑 Credenciais e Links
+
+**Repositório GitHub:** https://github.com/kassio87/rifasonline
+**Branch principal:** master
+**Comando para clonar:** `git clone https://github.com/kassio87/rifasonline.git`
+
+**Comandos Git úteis:**
+- `git status` - Verificar alterações
+- `git add .` - Adicionar arquivos
+- `git commit -m "mensagem"` - Fazer commit
+- `git push origin master` - Enviar para GitHub
+- `git pull origin master` - Baixar alterações
+
+**Servidor de desenvolvimento:**
+- Comando: `npm run dev`
+- URL: http://localhost:3000 (ou 3001 se 3000 ocupado)
+
+---
+
 ## 📋 Status Atual do Projeto
 
 **Data da última atualização:** 30/04/2026

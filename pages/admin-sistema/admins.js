@@ -188,22 +188,3 @@ export default function AdminsCliente() {
     </AdminSystemLayout>
   )
 }
-
-function getClientAdmins() {
-  return fetch('/api/users', {
-    headers: {
-      'Authorization': `Bearer ${localStorage.getItem('token')}`
-    }
-  }).then(res => res.json())
-}
-
-function createClientAdmin(data) {
-  return fetch('/api/users', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${localStorage.getItem('token')}`
-    },
-    body: JSON.stringify(data)
-  }).then(res => res.json())
-}

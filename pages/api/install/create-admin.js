@@ -1,4 +1,4 @@
-import { prisma } from '../../lib/prisma'
+import { prisma } from '../../../lib/prisma'
 import bcrypt from 'bcryptjs'
 
 // Cria o admin do sistema e finaliza instalação
