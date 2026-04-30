@@ -1,0 +1,276 @@
+// Prisma schema para RifasOnline - Sistema SaaS de Rifas
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// Enum para tipos de usuário
+enum UserRole {
+  SYSTEM_ADMIN
+  CLIENT_ADMIN
+  CUSTOMER
+}
+
+// Enum para status de assinatura
+enum SubscriptionStatus {
+  ACTIVE
+  INACTIVE
+  PENDING
+  CANCELLED
+}
+
+// Enum para status de pagamento
+enum PaymentStatus {
+  PENDING
+  PAID
+  CANCELLED
+  OVERDUE
+}
+
+// Enum para tipo de plano
+enum PlanType {
+  FIXED
+  RECURRENT
+}
+
+// Enum para status dos números da rifa
+enum NumberStatus {
+  AVAILABLE
+  RESERVED
+  PAID
+}
+
+// Enum para método de pagamento
+enum PaymentMethod {
+  PAGSEGURO
+  PIX
+  PIX_COPY_PASTE
+}
+
+// Usuários do sistema
+model User {
+  id            Int       @id @default(autoincrement())
+  name          String
+  email         String?   @unique
+  phone         String?   @unique
+  password      String
+  role          UserRole  @default(CUSTOMER)
+  whatsappId    String?   // ID da sessão do WhatsApp
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  // Relacionamentos
+  clientAdmin   ClientAdmin? @relation("ClientAdminUser")
+  customer      Customer?    @relation("CustomerUser")
+  sales         Sale[]       @relation("SaleUser")
+
+  @@map("users")
+}
+
+// Administradores de clientes (tenants)
+model ClientAdmin {
+  id            Int       @id @default(autoincrement())
+  userId        Int       @unique
+  companyName   String?
+  subdomain     String    @unique // URL customizada
+  customUrl     String?   // URL completa customizada
+  logo          String?
+  primaryColor  String    @default("#000000")
+  secondaryColor String   @default("#ffffff")
+  whatsappGroup String?   // ID do grupo do WhatsApp
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relacionamentos
+  user          User      @relation("ClientAdminUser", fields: [userId], references: [id])
+  subscription  Subscription?
+  raffles       Raffle[]
+  paymentOrders PaymentOrder[]
+  whatsappSession WhatsappSession?
+
+  @@map("client_admins")
+}
+
+// Clientes finais (compradores de rifas)
+model Customer {
+  id            Int       @id @default(autoincrement())
+  userId        Int       @unique
+  cpf           String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relacionamentos
+  user          User      @relation("CustomerUser", fields: [userId], references: [id])
+  sales         Sale[]
+  raffleNumbers RaffleNumber[] @relation("RaffleNumberCustomer")
+
+  @@map("customers")
+}
+
+// Planos de assinatura
+model Plan {
+  id            Int       @id @default(autoincrement())
+  name          String
+  type          PlanType
+  fixedPrice    Decimal?  // Para plano fixo
+  description   String?
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relacionamentos
+  subscriptions Subscription[]
+  limits        PlanLimit[]
+
+  @@map("plans")
+}
+
+// Limites do plano recorrente
+model PlanLimit {
+  id            Int       @id @default(autoincrement())
+  planId        Int
+  minSales      Int       // Quantidade mínima de vendas para este limite
+  maxSales      Int       // Quantidade máxima de vendas
+  percentage    Decimal   // Porcentagem cobrada
+
+  // Relacionamentos
+  plan          Plan      @relation(fields: [planId], references: [id])
+
+  @@unique([planId, minSales])
+  @@map("plan_limits")
+}
+
+// Assinaturas dos clientes
+model Subscription {
+  id            Int       @id @default(autoincrement())
+  clientAdminId Int       @unique
+  planId        Int
+  status        SubscriptionStatus @default(ACTIVE)
+  startDate     DateTime  @default(now())
+  endDate       DateTime? // Próxima data de cobrança ou fim
+  lastBilling   DateTime? // Última cobrança quinzenal
+  salesCount    Int       @default(0) // Vendas acumuladas no mês
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relacionamentos
+  clientAdmin   ClientAdmin @relation(fields: [clientAdminId], references: [id])
+  plan          Plan        @relation(fields: [planId], references: [id])
+
+  @@map("subscriptions")
+}
+
+// Rifas criadas pelos clientes
+model Raffle {
+  id            Int       @id @default(autoincrement())
+  clientAdminId Int
+  title         String
+  description   String?
+  totalNumbers  Int       // Quantidade total de números
+  pricePerNumber Decimal  // Preço de cada número
+  drawDate      DateTime? // Data do sorteio
+  status        String    @default("active") // active, finished, cancelled
+  pagseguroToken String?  // Dados próprios do cliente
+  pixKey        String?   // Chave PIX do cliente
+  pixCopyPaste  String?   // PIX Copia e Cola do cliente
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relacionamentos
+  clientAdmin   ClientAdmin @relation(fields: [clientAdminId], references: [id])
+  numbers       RaffleNumber[]
+  sales         Sale[]
+
+  @@map("raffles")
+}
+
+// Números da rifa
+model RaffleNumber {
+  id            Int       @id @default(autoincrement())
+  raffleId      Int
+  number        Int       // Número da rifa (1, 2, 3...)
+  status        NumberStatus @default(AVAILABLE)
+  customerId    Int?      // Quem reservou/comprou
+  reservedAt    DateTime? // Quando foi reservado
+  paidAt        DateTime? // Quando foi pago
+  saleId        Int?      // Venda relacionada
+
+  // Relacionamentos
+  raffle        Raffle    @relation(fields: [raffleId], references: [id])
+  customer      Customer? @relation("RaffleNumberCustomer", fields: [customerId], references: [id])
+
+  @@unique([raffleId, number])
+  @@map("raffle_numbers")
+}
+
+// Vendas de números
+model Sale {
+  id            Int       @id @default(autoincrement())
+  raffleId      Int
+  customerId    Int
+  userId        Int?      // Usuário que processou (admin)
+  number        Int       // Número vendido (um por venda)
+  totalAmount   Decimal
+  paymentMethod PaymentMethod
+  status        PaymentStatus @default(PENDING)
+  paidAt        DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relacionamentos
+  raffle        Raffle    @relation(fields: [raffleId], references: [id])
+  customer      Customer  @relation(fields: [customerId], references: [id])
+  user          User?     @relation("SaleUser", fields: [userId], references: [id])
+
+  @@map("sales")
+}
+
+// Pedidos de pagamento de assinatura
+model PaymentOrder {
+  id            Int       @id @default(autoincrement())
+  clientAdminId Int
+  amount        Decimal
+  description   String?
+  status        PaymentStatus @default(PENDING)
+  dueDate       DateTime  // Data de vencimento
+  paidAt        DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relacionamentos
+  clientAdmin   ClientAdmin @relation(fields: [clientAdminId], references: [id])
+
+  @@map("payment_orders")
+}
+
+// Configurações do sistema
+model SystemConfig {
+  id            Int       @id @default(autoincrement())
+  key           String    @unique
+  value         String
+  description   String?
+  updatedAt     DateTime  @updatedAt
+
+  @@map("system_config")
+}
+
+// Sessões do WhatsApp (uma por cliente admin)
+model WhatsappSession {
+  id            Int       @id @default(autoincrement())
+  clientAdminId Int?      @unique // Null para sessão do sistema
+  sessionData   String    // Dados serializados da sessão
+  qrCode        String?   // QR Code atual
+  status        String    @default("disconnected") // connected, disconnected, pending
+  updatedAt     DateTime  @updatedAt
+
+  // Relacionamentos
+  clientAdmin   ClientAdmin? @relation(fields: [clientAdminId], references: [id], onDelete: SetNull)
+
+  @@map("whatsapp_sessions")
+}
