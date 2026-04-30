@@ -6,7 +6,7 @@ module.exports = {
     cwd: '/home/rifasonline/htdocs/whatsrifas.com.br/rifasonline',
     env: {
       NODE_ENV: 'production',
-      PORT: 3088
+      PORT: 3000
     }
   }]
 }
