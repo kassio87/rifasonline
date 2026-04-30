@@ -315,15 +315,18 @@ pm2 save
 
 ## 🎯 Onde Paramos (Última Sessão)
 
-**Data:** 30/04/2026
-**Local:** Fase 4 - Frontend e UI/UX
-**Situação:** Aguardando escolha de qual módulo iniciar primeiro na Fase 4
+**Data:** 30/04/2026 - Sessão 4
+**Local:** Fase 4 - Frontend concluído, iniciando Deploy
+**Situação:** Deploy no servidor whatsrifas.com.br em andamento
 
-### Opções apresentadas ao usuário:
-1. Login e recuperação de senha
-2. Dashboard Admin Sistema
-3. Dashboard Admin Cliente
-4. Página do Cliente (URL customizada)
+### Status Atual do Deploy:
+- ✅ Código atualizado no GitHub (commit `7d4e6b0`)
+- ✅ Build no servidor: SUCESSO
+- ✅ PM2 configurado com `ecosystem.config.js`
+- ✅ Porta alterada para 3000
+- ✅ Log capture configurado
+- ⚠️ Pendente: Configurar proxy nginx para domínio sem porta
+- ⚠️ Pendente: Executar instalador `/install`
 
 ---
 
@@ -354,15 +357,114 @@ npx prisma migrate dev # Novas migrações
 
 ---
 
+## 🖥️ Configuração do Servidor (whatsrifas.com.br)
+
+### Acesso SSH:
+- **Usuário:** rifasonline
+- **Host:** whatsrifas.com.br
+- **Diretório da aplicação:** `/home/rifasonline/htdocs/whatsrifas.com.br/rifasonline`
+
+### Configuração do PM2 (`ecosystem.config.js`):
+```javascript
+module.exports = {
+  apps: [{
+    name: 'rifasonline',
+    script: 'npm',
+    args: 'start',
+    cwd: '/home/rifasonline/htdocs/whatsrifas.com.br/rifasonline',
+    error_file: '/home/rifasonline/htdocs/whatsrifas.com.br/rifasonline/logs/error.log',
+    out_file: '/home/rifasonline/htdocs/whatsrifas.com.br/rifasonline/logs/out.log',
+    merge_logs: true,
+    log_date_format: 'YYYY-MM-DD HH:mm:ss',
+    env: {
+      NODE_ENV: 'production',
+      PORT: 3000
+    }
+  }]
+}
+```
+
+### Configuração do Nginx:
+**Arquivo:** `/etc/nginx/sites-enabled/whatsrifas.com.br.conf`
+**Porta da aplicação:** 3000
+**Proxy configurado em location /:**
+```nginx
+proxy_pass http://127.0.0.1:3000;
+```
+
+### Arquivo .env (temporário para app subir):
+```env
+DATABASE_URL="mysql://temp:temp@localhost:3306/temp"
+JWT_SECRET="temp"
+NEXT_PUBLIC_API_URL="http://whatsrifas.com.br"
+NODE_ENV="production"
+```
+⚠️ O instalador (`/install`) vai criar o `.env` correto com os dados reais do banco.
+
+---
+
+## 🚀 Passo a Passo para Próxima Sessão
+
+### 1. Verificar se aplicação está rodando:
+```bash
+ssh rifasonline@whatsrifas.com.br
+cd /home/rifasonline/htdocs/whatsrifas.com.br/rifasonline
+pm2 status
+curl http://localhost:3000
+pm2 logs rifasonline --lines 50
+```
+
+### 2. Corrigir proxy nginx (se ainda não feito):
+```bash
+sudo nano /etc/nginx/sites-enabled/whatsrifas.com.br.conf
+# Alterar linha do proxy_pass para: proxy_pass http://127.0.0.1:3000;
+sudo nginx -t
+sudo systemctl restart nginx
+```
+
+### 3. Acessar instalador:
+No navegador: `https://whatsrifas.com.br/install`
+- O instalador vai:
+  1. Testar conexão com MySQL
+  2. Criar arquivo `.env` com `DATABASE_URL` correta
+  3. Rodar migrações do Prisma (`npx prisma migrate deploy`)
+  4. Criar usuário Admin Sistema
+
+### 4. Após instalador rodar:
+```bash
+pm2 restart rifasonline
+pm2 save
+```
+
+### 5. Verificar se tudo funciona:
+- Acesse `https://whatsrifas.com.br`
+- Teste login com admin criado no instalador
+- Verifique logs: `pm2 logs rifasonline --lines 50`
+
+---
+
 ## 🔍 O Que Verificar em Cada Nova Sessão
 
 1. Ler este arquivo completo
 2. Verificar se há novas migrações do Prisma
 3. Checar package.json para novas dependências
 4. Validar se o servidor de desenvolvimento sobe (`npm run dev`)
-5. Conferir se o banco MySQL está rodando
+5. Conferir se o banco MySQL está rodando no servidor
 6. Verificar sessões WhatsApp ativas
 7. Testar fluxo básico: login -> criar rifa -> conectar WhatsApp
+8. **Verificar status do deploy:** `pm2 status` e `curl http://localhost:3000`
+9. **Verificar logs:** `pm2 logs rifasonline --lines 50`
+10. **Verificar nginx:** `sudo nginx -t` e `sudo systemctl status nginx`
+
+---
+
+## 📦 Commits Recentes no GitHub:
+- `7d4e6b0` - Update HISTORICO.md with deploy progress and nginx config
+- `b26a8ac` - Add nginx vhost configuration for whatsrifas.com.br
+- `35f05e9` - Add log capture to ecosystem.config.js
+- `c7628e0` - Change port to 3000 for Next.js
+- `3d19cd5` - Fix ecosystem.config.js for Next.js (npm start instead of server.js)
+- `af85977` - Fix duplicate functions in lib/api.js
 
 ---
 
