@@ -272,33 +272,44 @@ Este arquivo serve como memória persistente entre sessões. Leia este arquivo n
 **O que foi feito:**
 1. Corrigido `lib/api.js` no servidor (havia duplicatas causando erro de build)
 2. Commitado e enviado para GitHub (commit `af85977`)
-3. Tentativa de SSH no servidor para `git pull` falhou por autenticação
-
-**Problema encontrado:**
-- SSH `rifasonline@whatsrifas.com.br` retorna "Permission denied (publickey,password)"
-- Não foi possível fazer deploy automático via SSH
-
-**Arquivos atualizados no GitHub:**
-- `lib/api.js` (limpo, sem duplicatas)
-- `.env.production.example` (novo)
-- `DEPLOY.md` (novo)
-- `ecosystem.config.js` (novo)
+3. Código atualizado no servidor via `git pull origin master` (feito pelo usuário)
+4. Corrigido `ecosystem.config.js` para Next.js (npm start em vez de server.js)
+5. Alterada porta para 3000 no `ecosystem.config.js`
+6. Adicionada captura de logs no `ecosystem.config.js`
+7. Enviados commits `af85977`, `3d19cd5`, `c7628e0`, `35f05e9` para GitHub
 
 **Status do Deploy:**
-- ❌ Pendente - Acesso SSH ao servidor necessário
-- ✅ Código atualizado no GitHub (master)
+- ✅ Código atualizado no servidor (git pull funcionou)
+- ✅ Build realizado com sucesso (`npm run build`)
+- ✅ PM2 configurado com `ecosystem.config.js`
+- ⚠️ Pendente: Configurar proxy no CyberPanel para domínio sem porta
+- ⚠️ Pendente: Executar instalador em `/install`
 
-**Próximos passos (MANUAL NO SERVIDOR):**
-1. Acessar servidor via CyberPanel ou SSH com chave correta
-2. No diretório `/home/rifasonline/htdocs/whatsrifas.com.br/rifasonline`:
-   ```bash
-   git pull origin master
-   npm install
-   npm run build
-   pm2 restart rifasonline
-   ```
-3. Configurar `.env` com credenciais reais do banco
-4. Executar migrações: `npx prisma migrate deploy`
+**Configuração de Proxy (CyberPanel):**
+Para acessar `whatsrifas.com.br` sem porta, configurar Proxy Pass no CyberPanel:
+1. Acessar CyberPanel → Websites → whatsrifas.com.br
+2. Clicar em **Rewrite Rules** ou **vHost Conf**
+3. Adicionar regra para proxy para localhost:3000
+
+**Próximos passos no servidor:**
+```bash
+# 1. Criar .env temporário para app subir
+cd /home/rifasonline/htdocs/whatsrifas.com.br/rifasonline
+cat > .env << 'EOF'
+DATABASE_URL="mysql://temp:temp@localhost:3306/temp"
+JWT_SECRET="temp-secret"
+NEXT_PUBLIC_API_URL="http://whatsrifas.com.br"
+NODE_ENV="production"
+EOF
+
+# 2. Iniciar aplicação
+pm2 delete rifasonline
+pm2 start ecosystem.config.js
+pm2 save
+
+# 3. Configurar proxy no CyberPanel para porta 3000
+# 4. Acessar http://whatsrifas.com.br/install
+```
 
 ---
 
